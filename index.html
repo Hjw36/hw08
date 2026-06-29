@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>课程语音知识库问答系统</title>
+    <style>
+        body{width:80%;margin:30px auto;font-family:微软雅黑;}
+        .box{border:1px solid #ccc;padding:20px;margin:15px 0;border-radius:8px;}
+        button{padding:8px 16px;background:#007bff;color:white;border:none;border-radius:4px;cursor:pointer;}
+        textarea{width:100%;height:120px;margin:10px 0;padding:10px;}
+    </style>
+</head>
+<body>
+    <h1>AI导论课程语音问答助手</h1>
+    <!-- 上传课件 -->
+    <div class="box">
+        <h3>1. 上传PDF课件构建知识库</h3>
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <input type="file" name="pdf_file" accept=".pdf" required>
+            <button type="submit">上传并入库</button>
+        </form>
+    </div>
+
+    <!-- 语音提问 -->
+    <div class="box">
+        <h3>2. 语音提问（麦克风录入）</h3>
+        <button id="startRec">开始录音</button>
+        <button id="stopRec">结束录音</button>
+        <p>识别文字：<span id="recText"></span></p>
+        <button id="askVoice">提交语音问题</button>
+    </div>
+
+    <!-- 文本提问 -->
+    <div class="box">
+        <h3>3. 手动文字提问</h3>
+        <form action="/ask_text" method="post">
+            <textarea name="question" placeholder="输入课程知识点问题"></textarea>
+            <button type="submit">AI问答</button>
+        </form>
+    </div>
+
+    <!-- AI回答展示 -->
+    <div class="box">
+        <h3>AI回答结果</h3>
+        <div id="answer">{{answer}}</div>
+        {% if audio_path %}
+        <audio controls src="{{audio_path}}">
+        {% endif %}
+    </div>
+
+    <script>
+        // 浏览器录音API
+        let recorder;
+        let audioChunks = [];
+        document.getElementById("startRec").onclick = async ()=>{
+            let stream = await navigator.mediaDevices.getUserMedia({audio:true});
+            recorder = new MediaRecorder(stream);
+            audioChunks = [];
+            recorder.ondataavailable = e=>audioChunks.push(e.data);
+            recorder.start();
+            alert("开始说话提问");
+        }
+        document.getElementById("stopRec").onclick = ()=>{
+            recorder.stop();
+            recorder.onstop = async ()=>{
+                let blob = new Blob(audioChunks, {type:"audio/wav"});
+                let fd = new FormData();
+                fd.append("audio", blob, "query.wav");
+                let res = await fetch("/voice_rec", {method:"POST", body:fd});
+                let txt = await res.text();
+                document.getElementById("recText").innerText = txt;
+            }
+        }
+        document.getElementById("askVoice").onclick = async ()=>{
+            let q = document.getElementById("recText").innerText;
+            window.location.href = "/ask?query="+encodeURIComponent(q);
+        }
+    </script>
+</body>
+</html>
